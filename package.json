@@ -9,6 +9,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
+    "start:lan": "vinext start --hostname 0.0.0.0 --port 3100",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {
