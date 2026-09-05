@@ -12,6 +12,7 @@ import {
   FileSearch,
   Info,
   Landmark,
+  Layers3,
   LockKeyhole,
   Menu,
   Search,
@@ -20,34 +21,24 @@ import {
   X,
 } from 'lucide-react';
 import { FormEvent, useMemo, useRef, useState } from 'react';
-
-type PortalKey = 'mn' | 'wi';
+import { portals, type PortalScope } from './portals';
 
 type SearchRun = {
   name: string;
-  portals: PortalKey[];
+  portals: string[];
 };
 
-const portals = [
-  {
-    id: 'mn' as const,
-    state: 'Minnesota',
-    short: 'MN',
-    name: 'Minnesota Court Records Online',
-    detail: 'Statewide district court case search',
-    url: 'https://publicaccess.courts.state.mn.us/CaseSearch',
-    accessNote: 'First and last name are required by MCRO.',
-  },
-  {
-    id: 'wi' as const,
-    state: 'Wisconsin',
-    short: 'WI',
-    name: 'Wisconsin Circuit Court Access',
-    detail: 'Statewide circuit court case search',
-    url: 'https://wcca.wicourts.gov/case.html',
-    accessNote: 'WCCA may require its own notice and CAPTCHA.',
-  },
-];
+const jurisdictionCount = new Set(portals.map((portal) => portal.state)).size;
+
+function portalFlags(value: boolean) {
+  return Object.fromEntries(portals.map((portal) => [portal.id, value])) as Record<string, boolean>;
+}
+
+function initialSelection() {
+  return Object.fromEntries(
+    portals.map((portal) => [portal.id, portal.id === 'mn-mcro' || portal.id === 'wi-wcca']),
+  ) as Record<string, boolean>;
+}
 
 function parseName(fullName: string) {
   const parts = fullName.trim().split(/\s+/);
@@ -59,9 +50,13 @@ function parseName(fullName: string) {
 }
 
 export default function Home() {
-  const [selected, setSelected] = useState<Record<PortalKey, boolean>>({ mn: true, wi: true });
+  const [selected, setSelected] = useState<Record<string, boolean>>(initialSelection);
   const [name, setName] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [railQuery, setRailQuery] = useState('');
+  const [directoryQuery, setDirectoryQuery] = useState('');
+  const [scopeFilter, setScopeFilter] = useState<'All' | PortalScope>('All');
+  const [showAllSources, setShowAllSources] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [matchMode, setMatchMode] = useState<'broad' | 'exact'>('broad');
   const [showConsent, setShowConsent] = useState(false);
@@ -69,21 +64,46 @@ export default function Home() {
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [searchRun, setSearchRun] = useState<SearchRun | null>(null);
-  const [opened, setOpened] = useState<Record<PortalKey, boolean>>({ mn: false, wi: false });
+  const [opened, setOpened] = useState<Record<string, boolean>>(() => portalFlags(false));
   const [copied, setCopied] = useState(false);
   const resultsRef = useRef<HTMLElement>(null);
 
-  const selectedCount = useMemo(() => Object.values(selected).filter(Boolean).length, [selected]);
+  const selectedCount = useMemo(() => portals.filter((portal) => selected[portal.id]).length, [selected]);
   const reviewedCount = searchRun ? searchRun.portals.filter((id) => opened[id]).length : 0;
   const nameParts = parseName(searchRun?.name ?? name);
 
-  function togglePortal(id: PortalKey) {
+  const railPortals = useMemo(() => {
+    const query = railQuery.trim().toLowerCase();
+    if (!query) return portals;
+    return portals.filter((portal) => `${portal.state} ${portal.short} ${portal.name}`.toLowerCase().includes(query));
+  }, [railQuery]);
+
+  const directoryPortals = useMemo(() => {
+    const query = directoryQuery.trim().toLowerCase();
+    return portals.filter((portal) => {
+      const matchesQuery = !query || `${portal.state} ${portal.short} ${portal.name} ${portal.coverage}`.toLowerCase().includes(query);
+      const matchesScope = scopeFilter === 'All' || portal.scope === scopeFilter;
+      return matchesQuery && matchesScope;
+    });
+  }, [directoryQuery, scopeFilter]);
+
+  const visibleDirectoryPortals = showAllSources || directoryQuery || scopeFilter !== 'All'
+    ? directoryPortals
+    : directoryPortals.slice(0, 12);
+
+  function togglePortal(id: string) {
     setSelected((current) => ({ ...current, [id]: !current[id] }));
   }
 
   function toggleAll() {
-    const next = selectedCount !== portals.length;
-    setSelected({ mn: next, wi: next });
+    setSelected(portalFlags(selectedCount !== portals.length));
+  }
+
+  function selectDirectoryResults() {
+    setSelected((current) => ({
+      ...current,
+      ...Object.fromEntries(directoryPortals.map((portal) => [portal.id, true])),
+    }));
   }
 
   function prepareSearch() {
@@ -92,8 +112,9 @@ export default function Home() {
       portals: portals.filter((portal) => selected[portal.id]).map((portal) => portal.id),
     };
     setSearchRun(nextRun);
-    setOpened({ mn: false, wi: false });
+    setOpened(portalFlags(false));
     setCopied(false);
+    setMenuOpen(false);
     window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
   }
 
@@ -126,7 +147,7 @@ export default function Home() {
     }
   }
 
-  function openPortal(id: PortalKey) {
+  function openPortal(id: string) {
     const portal = portals.find((item) => item.id === id);
     if (!portal || !searchRun) return;
     navigator.clipboard.writeText(searchRun.name).catch(() => undefined);
@@ -152,48 +173,58 @@ export default function Home() {
           <a href="#about">About</a>
         </nav>
         <div className="header-actions">
+          <span className="coverage-total"><i /> {portals.length} public portals</span>
           <button className="help-button" type="button" onClick={() => setShowInfo(true)}><CircleHelp size={16} /> How it works</button>
           <button className="menu-button" type="button" aria-label="Toggle jurisdictions" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><Menu size={21} /></button>
         </div>
       </header>
 
       <div className="workspace" id="top">
+        {menuOpen && <button className="rail-scrim" type="button" aria-label="Close jurisdictions" onClick={() => setMenuOpen(false)} />}
         <aside className={`source-rail ${menuOpen ? 'open' : ''}`} aria-label="Court sources">
           <div className="rail-heading">
             <div>
-              <p>JURISDICTIONS</p>
+              <p>COURT PORTALS</p>
               <span>{selectedCount} of {portals.length} selected</span>
             </div>
             <button type="button" onClick={toggleAll}>{selectedCount === portals.length ? 'Clear' : 'All'}</button>
           </div>
 
+          <label className="rail-search">
+            <Search size={14} />
+            <input value={railQuery} onChange={(event) => setRailQuery(event.target.value)} placeholder="Filter states or portals" aria-label="Filter state court portals" />
+            {railQuery && <button type="button" aria-label="Clear filter" onClick={() => setRailQuery('')}><X size={13} /></button>}
+          </label>
+
           <div className="state-list">
-            {portals.map((portal) => (
+            {railPortals.map((portal) => (
               <button
                 className={`state-row ${selected[portal.id] ? 'selected' : ''}`}
                 key={portal.id}
                 type="button"
                 onClick={() => togglePortal(portal.id)}
                 aria-pressed={selected[portal.id]}
+                title={`${portal.state}: ${portal.name}`}
               >
                 <span className="state-code">{portal.short}</span>
-                <span className="state-copy"><strong>{portal.state}</strong><small>1 public portal</small></span>
+                <span className="state-copy"><strong>{portal.state}</strong><small>{portal.name}</small></span>
                 <span className="check-box">{selected[portal.id] && <Check size={13} strokeWidth={3} />}</span>
               </button>
             ))}
+            {railPortals.length === 0 && <p className="empty-rail">No public portals match that filter.</p>}
           </div>
 
           <div className="coverage-card">
-            <div className="coverage-icon"><Landmark size={17} /></div>
-            <p><strong>2 state systems</strong><span>More public sources can be added as their access rules are verified.</span></p>
-            <button type="button" onClick={() => setShowInfo(true)}>View roadmap <ArrowRight size={13} /></button>
+            <div className="coverage-icon"><Layers3 size={17} /></div>
+            <p><strong>{portals.length} verified entry points</strong><span>Covering {jurisdictionCount} states and jurisdictions, with statewide and local scope labeled.</span></p>
+            <button type="button" onClick={() => setShowInfo(true)}>About coverage <ArrowRight size={13} /></button>
           </div>
         </aside>
 
         <section className="main-content" id="search">
           <div className="eyebrow"><span /> PUBLIC RECORD NAVIGATOR</div>
           <h1>Search court records<br />across state lines.</h1>
-          <p className="lede">Start one search, then review records directly in each state&apos;s official public court system.</p>
+          <p className="lede">Prepare one name search, choose from {portals.length} public court portals, then review records directly with each official source.</p>
 
           <form className="search-panel" onSubmit={submitSearch}>
             <label htmlFor="name-search">PERSON&apos;S FULL NAME</label>
@@ -227,7 +258,7 @@ export default function Home() {
 
           <div className="trust-note">
             <ShieldCheck size={19} />
-            <p><strong>Official sources, no hidden database.</strong> CourtAtlas helps you navigate public portals; records remain on the issuing court&apos;s website.</p>
+            <p><strong>Official sources, no hidden database.</strong> CourtAtlas helps you navigate public portals; records remain on the issuing court or clerk&apos;s website.</p>
           </div>
 
           {searchRun && (
@@ -235,7 +266,7 @@ export default function Home() {
               <div className="workspace-heading">
                 <div>
                   <p>SEARCH WORKSPACE</p>
-                  <h2>Review official court portals</h2>
+                  <h2>Review public court portals</h2>
                 </div>
                 <span>{reviewedCount} of {searchRun.portals.length} opened</span>
               </div>
@@ -261,7 +292,7 @@ export default function Home() {
                     <span className="step-number">{opened[portal.id] ? <Check size={15} /> : index + 1}</span>
                     <span className="launch-seal">{portal.short}</span>
                     <div className="launch-copy">
-                      <div><strong>{portal.name}</strong><span className={opened[portal.id] ? 'done-status' : ''}>{opened[portal.id] ? 'Opened' : 'Ready'}</span></div>
+                      <div><strong>{portal.name}</strong><span className={opened[portal.id] ? 'done-status' : ''}>{opened[portal.id] ? 'Opened' : portal.scope}</span></div>
                       <p>{portal.accessNote}</p>
                     </div>
                     <button type="button" onClick={() => openPortal(portal.id)}>{opened[portal.id] ? 'Open again' : 'Copy name & open'} <ExternalLink size={14} /></button>
@@ -271,7 +302,7 @@ export default function Home() {
 
               <div className="handoff-note">
                 <Info size={17} />
-                <p><strong>Why the extra step?</strong> State courts control their own search forms, notices, and CAPTCHAs. CourtAtlas never bypasses those safeguards or collects the records you view.</p>
+                <p><strong>Why the extra step?</strong> Courts control their own forms, notices, accounts, and CAPTCHAs. CourtAtlas never bypasses those safeguards or collects the records you view.</p>
                 {reviewedCount < searchRun.portals.length && <button type="button" onClick={openNextPortal}>Open next portal <ArrowRight size={14} /></button>}
               </div>
             </section>
@@ -279,23 +310,40 @@ export default function Home() {
 
           <section className="sources-section" id="sources">
             <div className="section-title">
-              <div><p>CONNECTED SOURCES</p><h2>Ready to search</h2></div>
-              <span><i /> {portals.length} portals available</span>
+              <div><p>PUBLIC SOURCE DIRECTORY</p><h2>{portals.length} court portals in {jurisdictionCount} jurisdictions</h2></div>
+              <span><i /> Official court or clerk entry points</span>
             </div>
+
+            <div className="directory-tools">
+              <label><Search size={15} /><input value={directoryQuery} onChange={(event) => { setDirectoryQuery(event.target.value); setShowAllSources(true); }} placeholder="Search state, court, or county" aria-label="Search source directory" /></label>
+              <div className="scope-tabs" aria-label="Filter by coverage scope">
+                {(['All', 'Statewide', 'Limited', 'County'] as const).map((scope) => <button type="button" className={scopeFilter === scope ? 'active' : ''} onClick={() => { setScopeFilter(scope); setShowAllSources(true); }} key={scope}>{scope}</button>)}
+              </div>
+              <button className="select-results" type="button" disabled={directoryPortals.length === 0} onClick={selectDirectoryResults}>Select {directoryPortals.length}</button>
+            </div>
+
+            <div className="directory-summary"><span>Showing {visibleDirectoryPortals.length} of {directoryPortals.length}</span><span><i className="statewide-dot" /> Statewide <i className="limited-dot" /> Limited <i className="county-dot" /> County</span></div>
+
             <div className="portal-grid">
-              {portals.map((portal) => (
-                <article className={`portal-card ${selected[portal.id] ? '' : 'muted'}`} key={portal.id}>
+              {visibleDirectoryPortals.map((portal) => (
+                <article className={`portal-card ${selected[portal.id] ? 'selected-card' : ''}`} key={portal.id}>
                   <div className="portal-top">
-                    <span className="portal-seal">{portal.short}</span>
-                    <span className="official-pill"><i /> Official source</span>
+                    <button className={`portal-seal ${selected[portal.id] ? 'selected' : ''}`} type="button" aria-label={`${selected[portal.id] ? 'Deselect' : 'Select'} ${portal.name}`} aria-pressed={selected[portal.id]} onClick={() => togglePortal(portal.id)}>{selected[portal.id] ? <Check size={14} /> : portal.short}</button>
+                    <span className={`scope-pill ${portal.scope.toLowerCase()}`}><i /> {portal.scope}</span>
                   </div>
-                  <p className="portal-state">{portal.state.toUpperCase()}</p>
+                  <p className="portal-state">{portal.state.toUpperCase()} · {portal.access.toUpperCase()}</p>
                   <h3>{portal.name}</h3>
-                  <p>{portal.detail}</p>
-                  <a href={portal.url} target="_blank" rel="noreferrer">Visit official portal <ArrowRight size={14} /></a>
+                  <p>{portal.coverage}</p>
+                  <div className="card-actions">
+                    <button type="button" onClick={() => togglePortal(portal.id)}>{selected[portal.id] ? 'Selected' : 'Add to search'}</button>
+                    <a href={portal.url} target="_blank" rel="noreferrer" aria-label={`Visit ${portal.name}`}>Official portal <ExternalLink size={13} /></a>
+                  </div>
                 </article>
               ))}
             </div>
+
+            {directoryPortals.length === 0 && <div className="empty-directory"><Search size={20} /><strong>No portals found</strong><span>Try a state name, court name, or a different scope.</span></div>}
+            {!showAllSources && directoryPortals.length > visibleDirectoryPortals.length && <button className="show-all-button" type="button" onClick={() => setShowAllSources(true)}>Show all {directoryPortals.length} portals <ArrowRight size={14} /></button>}
           </section>
         </section>
       </div>
@@ -312,11 +360,11 @@ export default function Home() {
             <span className="modal-icon"><ShieldCheck size={22} /></span>
             <p className="modal-kicker">PUBLIC ACCESS NOTICE</p>
             <h2 id="consent-title">Before you continue</h2>
-            <p className="modal-lede">CourtAtlas prepares your search and sends you to the selected official portals. It does not retrieve, store, or verify court records.</p>
+            <p className="modal-lede">CourtAtlas prepares your search and sends you to the selected public portals. It does not retrieve, store, or verify court records.</p>
             <ul>
-              <li><CheckCircle2 size={17} /><span><strong>Official court websites</strong> open in separate tabs.</span></li>
+              <li><CheckCircle2 size={17} /><span><strong>Official court or clerk websites</strong> open in separate tabs.</span></li>
               <li><CheckCircle2 size={17} /><span><strong>Your search name is copied</strong> so you can paste it into each form.</span></li>
-              <li><AlertTriangle size={17} /><span><strong>Each court&apos;s terms apply,</strong> including any notices or CAPTCHA.</span></li>
+              <li><AlertTriangle size={17} /><span><strong>Each source&apos;s terms apply,</strong> including notices, accounts, or CAPTCHA.</span></li>
             </ul>
             <label className="consent-check"><input type="checkbox" checked={consentChecked} onChange={(event) => setConsentChecked(event.target.checked)} /><span>I understand that court records may be incomplete or outdated and must be verified with the originating court.</span></label>
             <button className="confirm-button" type="button" disabled={!consentChecked} onClick={confirmSearch}>Prepare my search <ArrowRight size={16} /></button>
@@ -332,11 +380,11 @@ export default function Home() {
             <p className="modal-kicker">HOW IT WORKS</p>
             <h2 id="info-title">One calm starting point.</h2>
             <div className="how-steps">
-              <div><span>01</span><p><strong>Choose jurisdictions</strong>Select only the state court systems you need.</p></div>
-              <div><span>02</span><p><strong>Prepare the name</strong>CourtAtlas separates the name into useful fields.</p></div>
-              <div><span>03</span><p><strong>Review at the source</strong>Open each official portal and complete its required steps.</p></div>
+              <div><span>01</span><p><strong>Choose court portals</strong>Filter {portals.length} sources by state and coverage, then select only the ones you need.</p></div>
+              <div><span>02</span><p><strong>Prepare the name</strong>CourtAtlas separates the name into useful fields and copies it for each portal.</p></div>
+              <div><span>03</span><p><strong>Review at the source</strong>Open each public portal and complete its required terms or verification steps.</p></div>
             </div>
-            <div className="roadmap-note"><Info size={17} /><p><strong>Coverage roadmap</strong> Minnesota and Wisconsin are the first verified sources. Additional state and county portals can be added provider by provider.</p></div>
+            <div className="roadmap-note"><Info size={17} /><p><strong>Coverage is intentionally precise</strong> {portals.length} entry points cover {jurisdictionCount} jurisdictions. County and limited-court sources are labeled so they are never mistaken for statewide coverage.</p></div>
             <button className="confirm-button" type="button" onClick={() => setShowInfo(false)}>Got it</button>
           </section>
         </div>
