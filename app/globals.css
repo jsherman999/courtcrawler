@@ -184,6 +184,8 @@ h1 { max-width: 700px; margin: 0; color: #163c37; font-family: Georgia, 'Times N
 .portal-state { margin: 17px 0 6px !important; color: var(--orange) !important; font-size: 8px !important; font-weight: 800; letter-spacing: .15em; }
 .portal-card h3 { margin: 0; color: #26413d; font-family: Georgia, serif; font-size: 15px; line-height: 1.12; font-weight: 600; }
 .portal-card > p { margin: 8px 0 14px; color: #84908d; font-size: 9px; line-height: 1.45; }
+.portal-card > .portal-availability { display: flex; align-items: flex-start; gap: 6px; color: #866832; }
+.portal-availability > svg { flex-shrink: 0; margin-top: 1px; }
 .card-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 11px; border-top: 1px solid #eceeea; }
 .card-actions button { padding: 0; border: 0; color: var(--green); background: transparent; cursor: pointer; font-size: 8px; font-weight: 760; }
 .card-actions a { display: inline-flex; align-items: center; gap: 5px; color: #63716d; font-size: 8px; font-weight: 700; }

@@ -293,7 +293,7 @@ export default function Home() {
                     <span className="launch-seal">{portal.short}</span>
                     <div className="launch-copy">
                       <div><strong>{portal.name}</strong><span className={opened[portal.id] ? 'done-status' : ''}>{opened[portal.id] ? 'Opened' : portal.scope}</span></div>
-                      <p>{portal.accessNote}</p>
+                      <p>{portal.accessNote}{portal.availabilityNote && <> {portal.availabilityNote}</>}</p>
                     </div>
                     <button type="button" onClick={() => openPortal(portal.id)}>{opened[portal.id] ? 'Open again' : 'Copy name & open'} <ExternalLink size={14} /></button>
                   </article>
@@ -334,6 +334,7 @@ export default function Home() {
                   <p className="portal-state">{portal.state.toUpperCase()} · {portal.access.toUpperCase()}</p>
                   <h3>{portal.name}</h3>
                   <p>{portal.coverage}</p>
+                  {portal.availabilityNote && <p className="portal-availability"><AlertTriangle size={13} aria-hidden="true" />{portal.availabilityNote}</p>}
                   <div className="card-actions">
                     <button type="button" onClick={() => togglePortal(portal.id)}>{selected[portal.id] ? 'Selected' : 'Add to search'}</button>
                     <a href={portal.url} target="_blank" rel="noreferrer" aria-label={`Visit ${portal.name}`}>Official portal <ExternalLink size={13} /></a>

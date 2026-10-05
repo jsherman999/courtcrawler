@@ -11,6 +11,7 @@ export type CourtPortal = {
   access: PortalAccess;
   url: string;
   accessNote: string;
+  availabilityNote?: string;
 };
 
 export const portals: CourtPortal[] = [
@@ -247,6 +248,19 @@ export const portals: CourtPortal[] = [
     coverage: 'Appellate courts and participating district courts', scope: 'Limited', access: 'Open search',
     url: 'https://www.oscn.net/dockets/Search.aspx',
     accessNote: 'OSCN includes appellate cases and participating Oklahoma counties.',
+  },
+  {
+    id: 'or-circuit-tax', state: 'Oregon', short: 'OR', name: 'Oregon Circuit / Tax Court Search',
+    coverage: 'Circuit courts statewide and Tax Court; excludes municipal and justice courts', scope: 'Statewide', access: 'Court notice',
+    url: 'https://webportal.courts.oregon.gov/portal/',
+    accessNote: 'Free basic case information; no account or document downloads. In Smart Search, enter the name as Last, First. Protected cases are excluded.',
+    availabilityNote: 'Unavailable when checked October 5, 2026. Check OJD Records and Calendar Search for service updates.',
+  },
+  {
+    id: 'or-appellate', state: 'Oregon', short: 'OR', name: 'Oregon Appellate Public Portal',
+    coverage: 'Supreme Court and Court of Appeals; excludes trial courts', scope: 'Limited', access: 'Open search',
+    url: 'https://trportal.courts.oregon.gov/portal/search',
+    accessNote: 'Search public appellate cases or parties without an account. Clear Exclude Closed Cases to include historical cases. Anonymous access does not include documents.',
   },
   {
     id: 'pa-ujs', state: 'Pennsylvania', short: 'PA', name: 'UJS Web Portal Case Search',

@@ -2,7 +2,7 @@
 
 CourtAtlas is a privacy-conscious navigator for publicly available US court-record search portals. Enter a name once, choose the court systems you want to review, and work through the selected official court or clerk websites from one search workspace.
 
-The current registry contains 49 public entry points across 41 states and jurisdictions. Every source is labeled as statewide, limited, or county-level so partial coverage is not mistaken for a complete statewide search.
+The current registry contains 51 public entry points across 42 states and jurisdictions. Every source is labeled as statewide, limited, or county-level so partial coverage is not mistaken for a complete statewide search.
 
 ## What it does
 
@@ -98,6 +98,14 @@ launchctl bootout "gui/$(id -u)" ~/Library/LaunchAgents/com.jsherman.courtatlas.
 
 The checked-in plist uses `/Users/jay/wsj/courtcrawler` and Homebrew's `/opt/homebrew/bin/npm`. Update those paths before installing it on another Mac or from a different checkout location.
 
+## Oregon coverage
+
+- [OJD Online Records Search](https://webportal.courts.oregon.gov/portal/) covers circuit courts statewide and the Tax Court. Basic searching is free and does not require an account. Smart Search expects names in `Last, First` order. The free service excludes protected cases and does not provide document downloads. Municipal and justice courts require separate sources.
+- [Oregon Appellate Public Portal](https://trportal.courts.oregon.gov/portal/search) covers the Supreme Court and Court of Appeals. Public case and party searches are available without signing in; anonymous access does not include documents. Clear the default `Exclude Closed Cases` checkbox when reviewing historical cases.
+- The circuit/Tax portal returned HTTP 503 when checked on October 5, 2026. A dated availability note appears in both its directory card and search workspace. Recheck [OJD Records and Calendar Search](https://www.courts.oregon.gov/services/online/Pages/records-calendars.aspx) and the portal before removing or updating that note.
+
+Sources: [OJD records FAQ](https://www.courts.oregon.gov/services/online/Documents/Calendars-Records/recordSearchFAQs.pdf), [Smart Search guide](https://www.courts.oregon.gov/services/online/Documents/Calendars-Records/recordSearchQRG.pdf), and [OJD local-court coverage](https://www.courts.oregon.gov/courts/Pages/other-courts.aspx). Paid OJCIN access and bulk-data subscriptions are outside the free-source registry.
+
 ## Adding a court portal
 
 Add an entry to `app/portals.ts` with:
@@ -110,6 +118,7 @@ Add an entry to `app/portals.ts` with:
 - `Open search`, `Court notice`, or `Free account` access type.
 - The official public URL.
 - A short, factual access note.
+- An optional dated availability note when a verified source is unavailable.
 
 Only add a source after confirming that it is operated or authorized by the relevant judiciary or court clerk and that basic public searching does not require payment. Never describe a participating-court or county portal as statewide.
 
